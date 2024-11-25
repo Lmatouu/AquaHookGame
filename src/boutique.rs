@@ -70,31 +70,36 @@ pub fn sell_all_poissons(bateau: &mut Bateau) {
 }
 
 pub fn repair_bateau(bateau: &mut Bateau) {
-    let cost_per_repair = 1;
-    let repair_points = 5;
-    let mut max_repairable = bateau.pv_max - bateau.pv;
+    let cost_per_repair = 1;  // Coût d'une réparation
+    let repair_points = 5;    // Points de vie réparés à chaque réparation
+    let mut max_repairable = bateau.pv_max - bateau.pv;  // Calcul du nombre de PV restants à réparer
 
     // Vérifie si le bateau peut être réparé
     if max_repairable > 0 {
-        let max_repair_steps = max_repairable / repair_points; // Nombre de réparations nécessaires
-
-        // Si il y a encore de l'argent et qu'on n'a pas atteint pv_max
+        // Si le bateau peut être réparé et que le trésor est suffisant
         while bateau.tresor >= cost_per_repair && max_repairable > 0 {
-            // On répare par étapes de 5 points de vie
-            let repair_cost = cost_per_repair;  // Le coût d'une réparation
-            let repair_increment = repair_points;  // Le nombre de PV qu'on récupère à chaque réparation
+            // Calcul du coût et de l'incrément de réparation
+            let repair_cost = cost_per_repair;
+            let repair_increment = std::cmp::min(repair_points, max_repairable);  // Répare jusqu'au maximum de PV restant
 
-            // Effectue la réparation
-            bateau.tresor -= repair_cost;
-            bateau.pv += repair_increment;
+            // Effectuer la réparation en utilisant la méthode heal() de Bateau
+            match bateau.heal(repair_increment) {
+                Ok(_) => {
+                    bateau.tresor -= repair_cost;  // Déduit le coût de la réparation du trésor
+                    max_repairable -= repair_increment;  // Mets à jour le nombre de PV à réparer restant
 
-            // Mets à jour le nombre de PV restants à réparer
-            max_repairable -= repair_increment;
-
-            println!("Réparé {} PV pour {} 🪙. Il vous reste {} PV à réparer et {} 🪙.", repair_increment, repair_cost, max_repairable, bateau.tresor);
+                    println!(
+                        "Réparé {} PV pour {} 🪙. Il vous reste {} PV à réparer et {} 🪙.",
+                        repair_increment, repair_cost, max_repairable, bateau.tresor
+                    );
+                }
+                Err(e) => {
+                    println!("Erreur pendant la réparation : {}", e);
+                    break;  // En cas d'erreur, on arrête la réparation
+                }
+            }
         }
-
-        // Si le bateau a atteint son maximum de PV ou qu'il ne reste plus d'argent
+        // Vérifier si le bateau est complètement réparé ou s'il manque d'argent
         if bateau.pv >= bateau.pv_max {
             println!("Le bateau est complètement réparé.");
         } else {
@@ -104,4 +109,3 @@ pub fn repair_bateau(bateau: &mut Bateau) {
         println!("Le bateau est déjà à pleine santé.");
     }
 }
-

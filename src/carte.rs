@@ -10,6 +10,7 @@ use poisson::Poisson;
 const NUM_ILES: usize = 3;
 const NUM_POISSONS: usize = 8;
 const NUM_OBSTACLES: usize = 3;
+const NUM_MAX_POISSONS: usize = 20;
 
 pub struct Carte {
     pub taille: usize,
@@ -108,7 +109,10 @@ impl Carte {
                     {
                         self.poissons.remove(index);
                     }
-                    bateau.add_poisson_cale(1);
+                    match bateau.add_poisson_cale(1) {
+                        Ok(()) => println!("Poisson ajouté à la cale."),
+                        Err(e) => eprintln!("Erreur : {}", e),
+                    }
                 } else {
                     println!("La cale est pleine !");
                 }
@@ -120,7 +124,15 @@ impl Carte {
     pub fn bateau_sur_obstacles(&mut self, bateau: &mut Bateau) {
         for obstacle in &self.obstacles {
             if bateau.position == obstacle.position {
-                bateau.receive_damage(obstacle.attaque);
+                match bateau.receive_damage(obstacle.attaque) {
+                    Ok(()) => {
+                        println!("Le bateau a reçu des dégâts !");
+                    }
+                    Err(e) => {
+                        eprintln!("Erreur lors de la réception des dégâts : {}", e);
+                    }
+                }
+
                 println!(
                     "Vous avez heurté un {} et perdu {} points de vie.",
                     obstacle.name, obstacle.attaque
@@ -128,6 +140,13 @@ impl Carte {
                 break;
             }
         }
+    }
+
+    pub fn ajouter_poisson(&mut self) {
+        if self.poissons.len() < NUM_MAX_POISSONS {
+            self.poissons.push(Poisson::new(self.taille));
+            reposition_if_needed(&mut self.iles, &mut self.poissons, &mut self.obstacles, self.taille);
+        } 
     }
 }
 
