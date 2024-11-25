@@ -36,7 +36,7 @@ impl Mechant for Requin {
 
 impl Mechant for Pirate {
     fn emoji(&self) -> char {
-        '🧜'
+        '💀'
     }
     fn attaque(&self) -> i32 {
         50

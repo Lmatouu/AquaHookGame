@@ -1,11 +1,14 @@
 use crossterm::event::{self, Event, KeyCode};
 use std::io::{self, Write};
+use std::sync::mpsc;
+
+
 
 mod bateau;
 mod boutique;
 mod carte;
 
-const SIZE: usize = 12;
+const SIZE: usize = 14;
 
 fn main() {
     if let Err(e) = run_game() {
@@ -19,6 +22,25 @@ fn run_game() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut bateau = bateau::Bateau::new(String::from("Black Pearl"), ((SIZE / 2), (SIZE / 2)));
 
+    let mut options_achetees = vec![false, false, false, false, false, false];
+
+
+    let (tx, rx) = mpsc::channel();
+
+    // Démarrer le thread qui envoie un input pour ajouter un poisson toutes les X secondes
+    map.start_poisson_thread(tx);
+   
+    // let (input_tx, input_rx) = mpsc::channel();
+    // std::thread::spawn(move || {
+    //     loop {
+    //         if let Ok(input) = read_input() {
+    //             if input_tx.send(input).is_err() {
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // });
+
     loop {
         // Vérifie si le bateau est sur une île
         let mut bateau_sur_ile = carte::Carte::bateau_sur_ile(&map, bateau.position);
@@ -26,7 +48,7 @@ fn run_game() -> Result<(), Box<dyn std::error::Error>> {
         while bateau_sur_ile {
             clear_terminal()?;
             bateau.status();
-            boutique::afficher_boutique();
+            boutique::afficher_boutique(&options_achetees);
 
             let input = read_input()?;
 
@@ -38,7 +60,7 @@ fn run_game() -> Result<(), Box<dyn std::error::Error>> {
                 bateau_sur_ile = carte::Carte::bateau_sur_ile(&map, bateau.position);
             } else {
                 // Si l'utilisateur choisit une option dans la boutique
-                boutique::handle_boutique_input(&mut bateau, input);
+                boutique::handle_boutique_input(&mut bateau, input, &mut options_achetees);
             }
         }
 
@@ -51,18 +73,18 @@ fn run_game() -> Result<(), Box<dyn std::error::Error>> {
 
         // Lecture de l'entrée utilisateur
         let input = read_input()?;
-
+        bateau.position = bateau::Bateau::move_boat(bateau.position, input, SIZE);
+        
         if input == 'x' {
             println!("Au revoir !");
             break;
         }
 
-        //Ajouter un poisson sur la carte avec l'appui sur la touche 'p'
-        if input == 'p' {
-            carte::Carte::ajouter_poisson(&mut map);
+       // Ajouter un poisson sur la carte dès que message reçu par le channel rx 
+       if let Ok('p') = rx.try_recv() {
+        carte::Carte::ajouter_poisson(&mut map);
         }
                 
-        bateau.position = bateau::Bateau::move_boat(bateau.position, input, SIZE);
     }
 
     Ok(())

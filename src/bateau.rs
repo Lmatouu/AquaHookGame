@@ -1,12 +1,13 @@
-use std::sync::Mutex;
 use std::fmt;
+use crate::carte::poisson::Poisson;
 
 pub struct Bateau {
     pub nom: String,
     pub position: (usize, usize),
     pub pv: i32,
     pub pv_max: i32,
-    pub cale: i32,
+    pub cale: Vec<Poisson>,
+    pub cale_initiale: i32,
     pub cale_max: i32,
     pub tresor: i32,
     pub emoji: char,
@@ -19,7 +20,8 @@ impl Bateau {
             position,
             pv: 50,
             pv_max: 100,
-            cale: 0,
+            cale: Vec::new(),
+            cale_initiale: 5,
             cale_max: 5,
             tresor: 1500,
             emoji: '🛶',
@@ -29,7 +31,7 @@ impl Bateau {
     pub fn status(&self) {
         println!(
             "{} {} a {}/{} points de vie, {}/{} poissons dans la cale et {} 🪙",
-            self.nom, self.emoji, self.pv, self.pv_max, self.cale, self.cale_max, self.tresor
+            self.nom, self.emoji, self.pv, self.pv_max, self.cale.len(), self.cale_max, self.tresor
         );
     }
 
@@ -45,27 +47,16 @@ impl Bateau {
         (x, y)
     }
 
-    pub fn add_poisson_cale(&mut self, quantite: i32) -> Result<(), String> {
-        // Gestion de l'accès concurrent avec Mutex et gestion des erreurs de lock
-        let cale = Mutex::new(self.cale);
-        let mut cale_guard = match cale.lock() {
-            Ok(guard) => guard,
-            Err(_) => return Err("Erreur lors du verrouillage du Mutex".to_string()),
-        };
-
-        *cale_guard += quantite;
-
-        // Vérification que la cale ne dépasse pas sa capacité
-        if *cale_guard > self.cale_max {
+    pub fn add_poisson_cale(&mut self, poisson: Poisson) -> Result<(), String> {
+        if self.cale.len() >= self.cale_max as usize {
             return Err(format!("La cale dépasse la capacité maximale de {} poissons.", self.cale_max));
         }
-
-        self.cale = *cale_guard;
+        self.cale.push(poisson);
         Ok(())
     }
 
     pub fn is_full(&self) -> bool {
-        self.cale >= self.cale_max
+        self.cale.len() >= self.cale_max as usize
     }
 
     pub fn receive_damage(&mut self, damage: i32) -> Result<(), String> {
@@ -105,7 +96,7 @@ impl fmt::Debug for Bateau {
         write!(
             f,
             "{} {} à la position {:?} avec {} points de vie et {} poissons dans la cale",
-            self.nom, self.emoji, self.position, self.pv, self.cale
+            self.nom, self.emoji, self.position, self.pv, self.cale.len()
         )
     }
 }

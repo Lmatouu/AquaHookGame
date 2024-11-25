@@ -1,6 +1,7 @@
 mod ile;
 mod obstacle;
-mod poisson;
+pub mod poisson;
+use rand::Rng;
 
 use crate::bateau::Bateau;
 use ile::Ile;
@@ -51,9 +52,9 @@ impl Carte {
     pub fn print_map(&self) {
         for row in &self.map {
             for cell in row {
-                print!("{} ", cell);
+                print!("{}", cell);
             }
-            println!();
+            print!("\n");
         }
     }
     pub fn update_map(&mut self, bateau: &mut Bateau) {
@@ -107,11 +108,10 @@ impl Carte {
                         .iter()
                         .position(|p| p.position == poisson.position)
                     {
-                        self.poissons.remove(index);
-                    }
-                    match bateau.add_poisson_cale(1) {
-                        Ok(()) => println!("Poisson ajouté à la cale."),
-                        Err(e) => eprintln!("Erreur : {}", e),
+                        let poisson = self.poissons.remove(index);
+                        if let Err(e) = bateau.add_poisson_cale(poisson) {
+                            eprintln!("Erreur : {}", e);
+                        }
                     }
                 } else {
                     println!("La cale est pleine !");
@@ -125,9 +125,7 @@ impl Carte {
         for obstacle in &self.obstacles {
             if bateau.position == obstacle.position {
                 match bateau.receive_damage(obstacle.attaque) {
-                    Ok(()) => {
-                        println!("Le bateau a reçu des dégâts !");
-                    }
+                    Ok(()) => {}
                     Err(e) => {
                         eprintln!("Erreur lors de la réception des dégâts : {}", e);
                     }
@@ -147,6 +145,18 @@ impl Carte {
             self.poissons.push(Poisson::new(self.taille));
             reposition_if_needed(&mut self.iles, &mut self.poissons, &mut self.obstacles, self.taille);
         } 
+    }
+
+    pub fn start_poisson_thread(&self, tx: std::sync::mpsc::Sender<char>) {
+        std::thread::spawn(move || {
+            loop {
+                let delay = rand::thread_rng().gen_range(1..=3);
+                std::thread::sleep(std::time::Duration::from_secs(delay));
+                if tx.send('p').is_err() {
+                    break;
+                }
+            }
+        });
     }
 }
 
