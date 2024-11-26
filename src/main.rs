@@ -2,21 +2,30 @@ use crossterm::event::{self, Event, KeyCode};
 use std::io::{self, Write};
 use std::sync::mpsc;
 
+use std::thread;
 
-
+mod audio;
+mod image;
 mod bateau;
 mod boutique;
 mod carte;
 
-const SIZE: usize = 14;
+const SIZE: usize = 20;
 
 fn main() {
+    thread::spawn(|| {
+        let _ = audio::run_music("/home/.../musique/AquaHookMusic.mp3"); // Remplacez par le chemin de votre fichier audio
+    });
+
     if let Err(e) = run_game() {
         eprintln!("Une erreur critique est survenue : {:?}", e);
     }
 }
 
 fn run_game() -> Result<(), Box<dyn std::error::Error>> {
+    image::afficher_ecran_chargement()?;
+    
+    clear_terminal()?;
     // Initialisation de la carte
     let mut map = carte::Carte::new(SIZE);
 
@@ -25,21 +34,19 @@ fn run_game() -> Result<(), Box<dyn std::error::Error>> {
     let mut options_achetees = vec![false, false, false, false, false, false];
 
 
-    let (tx, rx) = mpsc::channel();
-
+    let (tx_poisson, rx_poisson) = mpsc::channel();
     // Démarrer le thread qui envoie un input pour ajouter un poisson toutes les X secondes
-    map.start_poisson_thread(tx);
-   
-    // let (input_tx, input_rx) = mpsc::channel();
-    // std::thread::spawn(move || {
-    //     loop {
-    //         if let Ok(input) = read_input() {
-    //             if input_tx.send(input).is_err() {
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // });
+    map.start_poisson_thread(tx_poisson);
+
+    let (tx_obstacle, rx_obstacle) = mpsc::channel();
+    // Démarrer le thread qui envoie un input pour ajouter un obstacle toutes les X secondes
+    map.start_obsctacle_thread(tx_obstacle);
+
+    let (tx_deplacement, rx_deplacement): (mpsc::Sender<char>, mpsc::Receiver<char>) = mpsc::channel();
+    // Démarrer le thread qui envoie un input pour déplacer les poissons et les obstacles toutes les secondes
+    map.start_deplacement_thread(tx_deplacement);
+
+
 
     loop {
         // Vérifie si le bateau est sur une île
@@ -71,18 +78,36 @@ fn run_game() -> Result<(), Box<dyn std::error::Error>> {
         println!("Déplacez le bateau (z: haut, q: gauche, s: bas, d: droite, x: quitter) :");
         bateau.status();
 
+        // Si le bateau n'a plus de points de vie, le jeu est terminé
+        if bateau.is_alive() == false{
+            println!("Vous avez perdu !");
+            break;
+        }
+
         // Lecture de l'entrée utilisateur
         let input = read_input()?;
         bateau.position = bateau::Bateau::move_boat(bateau.position, input, SIZE);
-        
+
+         // Si l'utilisateur appuie sur 'x', quitter le jeu
         if input == 'x' {
             println!("Au revoir !");
             break;
         }
 
-       // Ajouter un poisson sur la carte dès que message reçu par le channel rx 
-       if let Ok('p') = rx.try_recv() {
-        carte::Carte::ajouter_poisson(&mut map);
+        // Ajouter un poisson sur la carte dès que message reçu par le channel rx 
+
+        if let Ok('p') = rx_poisson.try_recv() {
+            carte::Carte::ajouter_poisson(&mut map);
+        }
+
+        // Ajouter un obstacle sur la carte dès que message reçu par le channel rx 
+       if let Ok('o') = rx_obstacle.try_recv() {
+            carte::Carte::ajouter_obstacle(&mut map);
+        }
+
+        // Envoyer l'input de déplacement à la carte
+        if let Ok('d') = rx_deplacement.try_recv() {
+            carte::Carte::deplacer_poissons_et_obstacles(&mut map);
         }
                 
     }

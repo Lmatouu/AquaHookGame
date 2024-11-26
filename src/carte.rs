@@ -3,6 +3,7 @@ mod obstacle;
 pub mod poisson;
 use rand::Rng;
 
+
 use crate::bateau::Bateau;
 use ile::Ile;
 use obstacle::Obstacle;
@@ -12,6 +13,7 @@ const NUM_ILES: usize = 3;
 const NUM_POISSONS: usize = 8;
 const NUM_OBSTACLES: usize = 3;
 const NUM_MAX_POISSONS: usize = 20;
+const NUM_MAX_OBSTACLES: usize = 10;
 
 pub struct Carte {
     pub taille: usize,
@@ -87,6 +89,19 @@ impl Carte {
         // Ajoute le bateau sur la carte
         let (x, y) = bateau.position;
         self.map[x][y] = bateau.emoji;
+
+        if bateau.is_alive() == false {
+            self.map[x][y] = '💥';
+            let directions_explosions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)];
+            for (dx, dy) in directions_explosions.iter() {
+                let new_flamme_x = x as isize + dx;
+                let new_flamme_y = y as isize + dy;
+                if new_flamme_x >= 0 && new_flamme_x < self.taille as isize && new_flamme_y >= 0 && new_flamme_y < self.taille as isize {
+                    self.map[new_flamme_x as usize][new_flamme_y as usize] = '🔥';
+                }
+            }
+        }
+
     }
 
     pub fn bateau_sur_ile(&self, boat_position: (usize, usize)) -> bool {
@@ -125,16 +140,29 @@ impl Carte {
         for obstacle in &self.obstacles {
             if bateau.position == obstacle.position {
                 match bateau.receive_damage(obstacle.attaque) {
-                    Ok(()) => {}
+                    Ok(()) => {
+                        println!(
+                            "Vous avez heurté un {} et perdu {} points de vie. \n",
+                            obstacle.name, obstacle.attaque
+                        );
+                    }
                     Err(e) => {
                         eprintln!("Erreur lors de la réception des dégâts : {}", e);
                     }
                 }
 
-                println!(
-                    "Vous avez heurté un {} et perdu {} points de vie.",
-                    obstacle.name, obstacle.attaque
-                );
+                if obstacle.name == "Pirate" {
+                    match bateau.remove_tresor(obstacle.vol_piece) {
+                        Ok(()) => {
+                            print!("Vous vous êtes fait voler {} pièces.\n",
+                            obstacle.vol_piece
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("Erreur lors du retrait du trésor : {}", e);
+                    }
+                }
+            }
                 break;
             }
         }
@@ -143,6 +171,13 @@ impl Carte {
     pub fn ajouter_poisson(&mut self) {
         if self.poissons.len() < NUM_MAX_POISSONS {
             self.poissons.push(Poisson::new(self.taille));
+            reposition_if_needed(&mut self.iles, &mut self.poissons, &mut self.obstacles, self.taille);
+        } 
+    }
+
+    pub fn ajouter_obstacle(&mut self) {
+        if self.poissons.len() < NUM_MAX_OBSTACLES {
+            self.obstacles.push(Obstacle::new(self.taille));
             reposition_if_needed(&mut self.iles, &mut self.poissons, &mut self.obstacles, self.taille);
         } 
     }
@@ -158,6 +193,52 @@ impl Carte {
             }
         });
     }
+
+    pub fn start_obsctacle_thread(&self, tx: std::sync::mpsc::Sender<char>) {
+        std::thread::spawn(move || {
+            loop {
+                let delay = rand::thread_rng().gen_range(1..=5);
+                std::thread::sleep(std::time::Duration::from_secs(delay));
+                if tx.send('o').is_err() {
+                    break;
+                }
+            }
+        });
+    }
+
+    pub fn start_deplacement_thread(&self, tx: std::sync::mpsc::Sender<char>) {
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(1500));
+                if tx.send('d').is_err() {
+                    break;
+                }
+            }
+        });
+    }
+    
+    pub fn deplacer_poissons_et_obstacles(&mut self) {
+        let directions = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        let mut rng = rand::thread_rng();
+
+        for poisson in &mut self.poissons {
+            let (dx, dy) = directions[rng.gen_range(0..4)];
+            let new_x = (poisson.position.0 as isize + dx).clamp(0, self.taille as isize - 1) as usize;
+            let new_y = (poisson.position.1 as isize + dy).clamp(0, self.taille as isize - 1) as usize;
+            poisson.position = (new_x, new_y);
+        }
+
+        for obstacle in &mut self.obstacles {
+            let (dx, dy) = directions[rng.gen_range(0..4)];
+            let new_x = (obstacle.position.0 as isize + dx).clamp(0, self.taille as isize - 1) as usize;
+            let new_y = (obstacle.position.1 as isize + dy).clamp(0, self.taille as isize - 1) as usize;
+            obstacle.position = (new_x, new_y);
+        }
+
+        reposition_if_needed(&mut self.iles, &mut self.poissons, &mut self.obstacles, self.taille);
+    }
+
+
 }
 
 fn reposition_if_needed(

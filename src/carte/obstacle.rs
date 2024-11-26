@@ -8,17 +8,21 @@ pub struct Pirate;
 pub trait Mechant {
     fn emoji(&self) -> char;
     fn attaque(&self) -> i32;
-    fn name(&self) -> String;}
+    fn name(&self) -> String;
+    fn vol_piece(&self) -> i32;}
 
 impl Mechant for Cyclone {
     fn emoji(&self) -> char {
         '🌀'
     }
     fn attaque(&self) -> i32 {
-        25
+        50
     }
     fn name(&self) -> String {
         String::from("Cyclone")
+    }
+    fn vol_piece(&self) -> i32 {
+        0
     }
 }
 
@@ -27,10 +31,13 @@ impl Mechant for Requin {
         '🦈'
     }
     fn attaque(&self) -> i32 {
-        50
+        10
     }
     fn name(&self) -> String {
         String::from("Requin")
+    }
+    fn vol_piece(&self) -> i32 {
+        0
     }
 }
 
@@ -39,10 +46,13 @@ impl Mechant for Pirate {
         '💀'
     }
     fn attaque(&self) -> i32 {
-        50
+        20
     }
     fn name(&self) -> String {
         String::from("Pirate")
+    }
+    fn vol_piece(&self) -> i32 {
+        50
     }
 }
 
@@ -51,6 +61,7 @@ pub struct Obstacle {
     pub espece: Box<dyn Mechant>,
     pub attaque: i32,
     pub name: String,
+    pub vol_piece: i32,
 }
 
 impl Obstacle {
@@ -66,12 +77,14 @@ impl Obstacle {
 
         let attaque = espece.attaque();
         let name = espece.name();
+        let vol_piece = espece.vol_piece();
 
         Obstacle {
             position,
             espece,
             attaque,
             name,
+            vol_piece,
         }
     }
 }

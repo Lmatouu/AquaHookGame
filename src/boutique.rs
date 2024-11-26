@@ -1,4 +1,5 @@
 use crate::bateau::Bateau;
+use std::cmp;
 
 #[derive(Debug, PartialEq)]
 pub enum OptionBoutique {
@@ -26,10 +27,10 @@ impl OptionBoutique {
         match self {
             OptionBoutique::VendrePoissons => 0,
             OptionBoutique::ReparerBateau => 1,
-            OptionBoutique::AcheterVoilier => 100,
-            OptionBoutique::AcheterBaleinier => 500,
+            OptionBoutique::AcheterVoilier => 700,
+            OptionBoutique::AcheterBaleinier => 1500,
             OptionBoutique::AcheterCanne => 130,
-            OptionBoutique::AcheterHamecon => 175,
+            OptionBoutique::AcheterHamecon => 415,
         }
     }
 
@@ -57,9 +58,8 @@ impl OptionBoutique {
 }
 
 pub fn afficher_boutique(options_achetees: &Vec<bool>) {
-    println!("Bienvenue dans le port !");
+    println!("Bienvenue au port !");
 
-    // Affichage des catégories
     let options = vec![
         (OptionBoutique::VendrePoissons, "🐟 **Poissonnier**"),
         (OptionBoutique::ReparerBateau, "🛠️ **Calfat**"),
@@ -69,31 +69,36 @@ pub fn afficher_boutique(options_achetees: &Vec<bool>) {
         (OptionBoutique::AcheterHamecon, "🧵 **Quincaillier**"),
     ];
 
-    // Boucle pour afficher les options
     for (index, (option, category)) in options.iter().enumerate() {
-        // Affichage de la catégorie
         if index == 0 || index == 1 || index == 2 || index == 4 {
             println!("\n{}", category);
         }
 
         if !options_achetees[index] {
-            // Si l'option est VendrePoissons ou ReparerBateau, ne pas afficher le prix
-            if option == &OptionBoutique::VendrePoissons || option == &OptionBoutique::ReparerBateau {
+            if option == &OptionBoutique::VendrePoissons || option == &OptionBoutique::ReparerBateau
+            {
                 println!("   {}  | {} {}", index + 1, option.nom(), option.emoji());
             } else if option == &OptionBoutique::AcheterBaleinier && !options_achetees[2] {
-                // Si l'option AcheterBaleinier et que AcheterVoilier n'a pas été acheté, ne pas afficher l'option
                 continue;
             } else {
-                // Sinon, afficher le prix avec l'emoji
-                println!("   {}  | {} {} - {} 🪙", index + 1, option.nom(), option.emoji(), option.cout());
+                println!(
+                    "   {}  | {} {} - {} 🪙",
+                    index + 1,
+                    option.nom(),
+                    option.emoji(),
+                    option.cout()
+                );
             }
         } else {
-            // Si l'option a été achetée, afficher "Déjà acheté"
-            println!("   {}  | {} {} - Déjà acheté", index + 1, option.nom(), option.emoji());
+            println!(
+                "   {}  | {} {} - Déjà acheté",
+                index + 1,
+                option.nom(),
+                option.emoji()
+            );
         }
     }
 }
-
 
 pub fn handle_boutique_input(bateau: &mut Bateau, input: char, options_achetees: &mut Vec<bool>) {
     bateau.status();
@@ -104,13 +109,12 @@ pub fn handle_boutique_input(bateau: &mut Bateau, input: char, options_achetees:
         '2' => OptionBoutique::ReparerBateau,
         '3' => OptionBoutique::AcheterVoilier,
         '4' => {
-            // Vérification si l'option 3 (AcheterVoilier) a été achetée
             if !options_achetees[2] {
                 println!("Vous devez acheter un voilier avant de pouvoir acheter un baleinier.");
-                return; // Empêche l'achat du baleinier si le voilier n'a pas été acheté
+                return;
             }
             OptionBoutique::AcheterBaleinier
-        },
+        }
         '5' => OptionBoutique::AcheterCanne,
         '6' => OptionBoutique::AcheterHamecon,
         _ => {
@@ -119,29 +123,43 @@ pub fn handle_boutique_input(bateau: &mut Bateau, input: char, options_achetees:
         }
     };
 
-    // Si l'option est VendrePoissons ou ReparerBateau, on les exécute immédiatement
     match option {
         OptionBoutique::VendrePoissons => {
             sell_all_poissons(bateau);
-            return; // Fin de la fonction car l'action est effectuée
-        },
+            return;
+        }
         OptionBoutique::ReparerBateau => {
             repair_bateau(bateau);
-            return; // Fin de la fonction car l'action est effectuée
-        },
-        _ => {} // Les autres options continueront la logique d'achat
+            return;
+        }
+        _ => {}
     }
 
-    // Si le joueur a suffisamment d'argent et n'a pas déjà acheté cette option
-    if bateau.tresor >= option.cout() && !options_achetees[match option {
-        OptionBoutique::AcheterVoilier => 2,
-        OptionBoutique::AcheterBaleinier => 3,
-        OptionBoutique::AcheterCanne => 4,
-        OptionBoutique::AcheterHamecon => 5,
-        _ => return,
-    }] {
-        println!("Vous avez choisi: {} {} | Coût: {} 🪙", option.nom(), option.emoji(), option.cout());
-        bateau.tresor -= option.cout();
+    if *bateau.tresor.lock().unwrap() >= option.cout()
+        && !options_achetees[match option {
+            OptionBoutique::AcheterVoilier => 2,
+            OptionBoutique::AcheterBaleinier => 3,
+            OptionBoutique::AcheterCanne => 4,
+            OptionBoutique::AcheterHamecon => 5,
+            _ => return,
+        }]
+    {
+        let cout = option.cout();
+        {
+            let mut tresor = bateau.tresor.lock().unwrap();
+            if *tresor >= cout {
+                *tresor -= cout;
+            } else {
+                println!("Vous n'avez pas assez de 🪙 pour effectuer cette action.");
+                return;
+            }
+        } // Le MutexGuard est libéré ici
+        println!(
+            "Vous avez choisi: {} {} | Coût: {} 🪙",
+            option.nom(),
+            option.emoji(),
+            option.cout()
+        );
         option.action(bateau);
 
         // Marquer cette option comme achetée
@@ -152,7 +170,7 @@ pub fn handle_boutique_input(bateau: &mut Bateau, input: char, options_achetees:
             OptionBoutique::AcheterHamecon => options_achetees[5] = true,
             _ => {}
         }
-    } else if bateau.tresor < option.cout() {
+    } else if *bateau.tresor.lock().unwrap() < option.cout() {
         println!("Vous n'avez pas assez de 🪙 pour effectuer cette action.");
     } else {
         println!("Cette option a déjà été achetée.");
@@ -160,8 +178,13 @@ pub fn handle_boutique_input(bateau: &mut Bateau, input: char, options_achetees:
 }
 
 fn sell_all_poissons(bateau: &mut Bateau) {
-    let gain: f32 = bateau.cale.iter().map(|poisson| 0.03 * poisson.poids * poisson.taille).sum();
-    bateau.tresor += gain as i32;
+    let gain: f32 = bateau
+        .cale
+        .iter()
+        .map(|poisson| 0.05 * poisson.poids * poisson.taille)
+        .sum();
+    let mut tresor = bateau.tresor.lock().unwrap();
+    *tresor += gain as i32;
     bateau.cale.clear();
     println!("Vous avez gagné {} 🪙 en vendant vos poissons.", gain);
 }
@@ -172,13 +195,14 @@ fn repair_bateau(bateau: &mut Bateau) {
     let mut max_repairable = bateau.pv_max - bateau.pv;
 
     if max_repairable > 0 {
-        while bateau.tresor >= cost_per_repair && max_repairable > 0 {
+        while *bateau.tresor.lock().unwrap() >= cost_per_repair && max_repairable > 0 {
             let repair_cost = cost_per_repair;
-            let repair_increment = std::cmp::min(repair_points, max_repairable);
+            let repair_increment = cmp::min(repair_points, max_repairable);
 
             match bateau.heal(repair_increment) {
                 Ok(_) => {
-                    bateau.tresor -= repair_cost;
+                    let mut tresor = bateau.tresor.lock().unwrap();
+                    *tresor -= repair_cost;
                     max_repairable -= repair_increment;
                 }
                 Err(e) => {
@@ -220,4 +244,3 @@ fn buy_hamecon(bateau: &mut Bateau) {
     bateau.cale_initiale = bateau.cale_max;
     bateau.cale_max += 3;
 }
-

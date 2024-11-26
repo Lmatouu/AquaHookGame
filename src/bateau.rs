@@ -1,5 +1,6 @@
 use std::fmt;
 use crate::carte::poisson::Poisson;
+use std::sync::{Arc, Mutex};
 
 pub struct Bateau {
     pub nom: String,
@@ -9,7 +10,7 @@ pub struct Bateau {
     pub cale: Vec<Poisson>,
     pub cale_initiale: i32,
     pub cale_max: i32,
-    pub tresor: i32,
+    pub tresor: Arc<Mutex<i32>>,
     pub emoji: char,
 }
 
@@ -23,15 +24,15 @@ impl Bateau {
             cale: Vec::new(),
             cale_initiale: 5,
             cale_max: 5,
-            tresor: 1500,
+            tresor: Arc::new(Mutex::new(15)),
             emoji: '🛶',
         }
     }
 
     pub fn status(&self) {
         println!(
-            "{} {} a {}/{} points de vie, {}/{} poissons dans la cale et {} 🪙",
-            self.nom, self.emoji, self.pv, self.pv_max, self.cale.len(), self.cale_max, self.tresor
+            "{} {} a {}/{} points de vie, {}/{} poissons dans la cale et {} 🪙\n",
+            self.nom, self.emoji, self.pv, self.pv_max, self.cale.len(), self.cale_max, self.tresor.lock().unwrap()
         );
     }
 
@@ -74,6 +75,21 @@ impl Bateau {
         Ok(())
     }
 
+    pub fn remove_tresor(&mut self, amount: i32) -> Result<(), String> {
+        if amount < 0 {
+            return Err("La quantité de trésor à enlever ne peut pas être négative.".to_string());
+        }
+
+        let mut tresor = self.tresor.lock().unwrap();
+        *tresor -= amount;
+
+        if *tresor < 0 {
+            *tresor = 0;
+        }
+
+        Ok(())
+    }
+
     pub fn heal(&mut self, heal_points: i32) -> Result<(), String> {
         // Vérification pour éviter que les points de vie dépassent le maximum
         if heal_points < 0 {
@@ -88,6 +104,10 @@ impl Bateau {
         }
         Ok(())
     }
+
+    pub fn is_alive(&self) -> bool {
+        self.pv > 0
+    }
 }
 
 // Implémentation de la fonction fmt::Debug pour afficher un bateau de manière lisible
@@ -95,7 +115,7 @@ impl fmt::Debug for Bateau {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{} {} à la position {:?} avec {} points de vie et {} poissons dans la cale",
+            "{} {} à la position {:?} avec {} points de vie et {} poissons dans la cale\n",
             self.nom, self.emoji, self.position, self.pv, self.cale.len()
         )
     }
