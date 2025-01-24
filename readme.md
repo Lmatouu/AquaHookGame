@@ -4,7 +4,7 @@ Bienvenue dans **AquaHook Game** ! 🌊⚓
 
 ## Auteur
 
-Créé par les matelots Kilian Guéry ⚓ et Mathis Veber ⚓ pour le capitaine Dimitry ! 
+Créé par les matelots ⚓ pour le capitaine  ! 
 
 ## Histoire
 
@@ -47,20 +47,6 @@ sudo apt-get install libasound2-dev pkg-config libasound2-dev
 **Lancer le jeu dans un terminal**
 > cargo run
 
-## Fonctionnalités Phares & Répartition des Corvées
-
-- **Affichage de la carte** : Kilian Guéry & Mathis Veber ⚓
-- **Gestion de navigation du bateau** : Kilian Guéry ⚓
-- **Réalisation de la boutique** : Kilian Guéry ⚓
-- **Implémentation Poisson en utilisant des Traits** : Mathis Veber ⚓
-- **Implémentation Obstacle en utilisant des Traits** : Mathis Veber ⚓
-- **Implémentation Ile**: Mathis Veber ⚓
-- **Réalisation des threads création Poisson & création Obstacle** : Mathis Veber ⚓
-- **Réalisation des threads déplacements positions** : Mathis Veber ⚓
-- **Réalisation du thread pour lancer la musique** : Kilian Guéry ⚓
-- **Réalisation de l'écran d'accueil** : Kilian Guéry ⚓
-- **Gestion des positions des éléments**: Kilian Guéry ⚓
-- **Gestion des erreurs**: Kilian Guéry ⚓
 
 
 
